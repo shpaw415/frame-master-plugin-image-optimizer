@@ -125,6 +125,38 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
+/**
+ * Sanitize a path to prevent directory traversal attacks
+ * Returns null if the path is malicious
+ */
+function sanitizePath(relativePath: string, baseDir: string): string | null {
+  // Reject obvious traversal attempts
+  if (relativePath.includes("..") || relativePath.includes("\\")) {
+    return null;
+  }
+
+  // Normalize and resolve the full path
+  const normalized = relativePath
+    .split("/")
+    .filter((segment) => segment && segment !== ".")
+    .join("/");
+
+  // Reject empty paths
+  if (!normalized) {
+    return null;
+  }
+
+  // Resolve to absolute path and verify it stays within baseDir
+  const resolved = join(baseDir, normalized);
+  const normalizedBase = baseDir.endsWith("/") ? baseDir : baseDir + "/";
+
+  if (!resolved.startsWith(normalizedBase) && resolved !== baseDir) {
+    return null;
+  }
+
+  return normalized;
+}
+
 async function getImageFiles(dir: string): Promise<string[]> {
   const files: string[] = [];
 
@@ -688,7 +720,20 @@ export default function ImageOptimizerPlugin(
     format: string,
     quality: number
   ): Promise<{ buffer: Buffer; contentType: string } | null> {
+    // Defense-in-depth: validate path doesn't escape input directory
+    if (relativePath.includes("..") || relativePath.includes("\\")) {
+      logError(`Blocked path traversal attempt: ${relativePath}`);
+      return null;
+    }
+
     const inputPath = join(getInputPath(), relativePath);
+
+    // Verify the resolved path is within input directory
+    const normalizedInputDir = getInputPath();
+    if (!inputPath.startsWith(normalizedInputDir)) {
+      logError(`Path escaped input directory: ${relativePath}`);
+      return null;
+    }
 
     // Check if source image exists
     if (!(await fileExists(inputPath))) {
@@ -764,9 +809,15 @@ export default function ImageOptimizerPlugin(
           const pathname = url.pathname;
 
           // Extract path after publicPath
-          const relativePath = pathname.slice(config.publicPath.length + 1);
+          const rawPath = pathname.slice(config.publicPath.length + 1);
 
-          if (!relativePath || !isImageFile(relativePath)) {
+          // Sanitize path to prevent directory traversal attacks
+          const relativePath = sanitizePath(rawPath, getInputPath());
+          if (!relativePath) {
+            return new Response("Invalid path", { status: 400 });
+          }
+
+          if (!isImageFile(relativePath)) {
             return new Response("Not found", { status: 404 });
           }
 
