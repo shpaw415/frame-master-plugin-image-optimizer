@@ -1,0 +1,28 @@
+{
+  "name": "cloudflare-pages-react-tailwind",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "wrangler": "^4.54.0"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.1.18",
+    "frame-master": "^3.0.2",
+    "frame-master-plugin-apply-react": "0.1.5",
+    "frame-master-plugin-react-to-html": "0.1.4",
+    "frame-master-plugin-tailwind": "1.0.3",
+    "tailwindcss": "^4.1.18",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "peerDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "dev": "NODE_ENV=development bun --hot frame-master start",
+    "build": "NODE_ENV=production bun frame-master build",
+    "start": "NODE_ENV=production bun frame-master start"
+  }
+}

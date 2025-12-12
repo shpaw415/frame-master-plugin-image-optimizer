@@ -1,0 +1,61 @@
+{
+  "generatedAt": "2025-12-12T05:09:48.714Z",
+  "images": {
+    "logo.webp": {
+      "original": "logo.webp",
+      "width": 402,
+      "height": 316,
+      "variants": [
+        {
+          "format": "webp",
+          "size": 320,
+          "path": "logo-320w.webp",
+          "width": 320,
+          "height": 252
+        },
+        {
+          "format": "avif",
+          "size": 320,
+          "path": "logo-320w.avif",
+          "width": 320,
+          "height": 252
+        },
+        {
+          "format": "jpeg",
+          "size": 320,
+          "path": "logo-320w.jpeg",
+          "width": 320,
+          "height": 252
+        }
+      ]
+    },
+    "logo.png": {
+      "original": "logo.png",
+      "width": 402,
+      "height": 316,
+      "variants": [
+        {
+          "format": "webp",
+          "size": 320,
+          "path": "logo-320w.webp",
+          "width": 320,
+          "height": 252
+        },
+        {
+          "format": "avif",
+          "size": 320,
+          "path": "logo-320w.avif",
+          "width": 320,
+          "height": 252
+        },
+        {
+          "format": "jpeg",
+          "size": 320,
+          "path": "logo-320w.jpeg",
+          "width": 320,
+          "height": 252
+        }
+      ]
+    }
+  }
+}

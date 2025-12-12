@@ -1,0 +1,21 @@
+{
+  "name": "frame-master-plugin-image-optimizer",
+  "version": "0.1.0",
+  "type": "module",
+  "peerDependencies": {
+    "frame-master": "^3.0.2",
+    "typescript": "^5"
+  },
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "dependencies": {
+    "sharp": "^0.34.5"
+  },
+  "exports": {
+    ".": "./index.ts",
+    "./types": "./types.d.ts",
+    "./utils": "./utils.ts"
+  }
+}
