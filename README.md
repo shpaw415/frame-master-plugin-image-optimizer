@@ -17,10 +17,10 @@ A powerful image optimization plugin for [Frame-Master](https://frame-master.com
 ## Installation
 
 ```bash
-bun add frame-master-plugin-image-optimizer sharp
+bun add frame-master-plugin-image-optimizer
 ```
 
-> **Note:** This plugin requires [sharp](https://sharp.pixelplumbing.com/) for image processing.
+> **Requirements:** [Bun](https://bun.sh) **≥ 1.3.14** (uses the built-in [`Bun.Image`](https://bun.sh/blog/bun-v1.3.14) API — no `sharp` or other native image addons).
 
 ## Quick Start
 
@@ -485,22 +485,22 @@ static/optimized/
 
 ## Supported Formats
 
+Processing is powered by **Bun.Image**. Portable codecs work on every platform; some formats need OS system codecs.
+
 ### Input Formats
 
-- JPEG (`.jpg`, `.jpeg`)
-- PNG (`.png`)
-- GIF (`.gif`)
-- WebP (`.webp`)
-- AVIF (`.avif`)
-- TIFF (`.tiff`)
-- SVG (`.svg`)
+| Format | Linux | macOS | Windows |
+| ------ | ----- | ----- | ------- |
+| JPEG, PNG, WebP, GIF, BMP | ✅ | ✅ | ✅ |
+| AVIF, HEIC, TIFF | — (OS codec) | ✅ | ✅ |
+| SVG | — (not rasterized by Bun.Image) | — | — |
 
 ### Output Formats
 
-- **WebP** - Best overall compression, wide browser support
-- **AVIF** - Superior compression, growing browser support
-- **JPEG** - Universal compatibility, uses MozJPEG encoder
-- **PNG** - Lossless, best for graphics with transparency
+- **WebP** — Best overall compression, wide browser support (all platforms)
+- **JPEG** — Universal compatibility (all platforms)
+- **PNG** — Lossless / transparency (all platforms)
+- **AVIF** — Superior compression; **encode requires macOS (Apple Silicon for encode) or Windows** — not available on Linux
 
 ## How It Works
 
@@ -603,9 +603,11 @@ quality: 70;
 
 ### Build Errors
 
-1. Check that `sharp` is installed: `bun add sharp`
+1. Confirm Bun is **≥ 1.3.14** (`bun --version`) — required for `Bun.Image`
 2. Verify write permissions on output directory
-3. Check console for specific error messages
+3. On Linux, avoid `formats: ["avif"]` (AVIF encode is not available)
+4. SVG sources are not rasterized; convert to PNG/JPEG/WebP first
+5. Check console for specific error messages
 
 ### Large Bundle Size
 
@@ -687,5 +689,5 @@ MIT
 
 - [Frame-Master Documentation](https://frame-master.com/docs)
 - [Frame-Master Plugins](https://frame-master.com/plugins)
-- [Sharp Documentation](https://sharp.pixelplumbing.com/)
+- [Bun.Image (Bun v1.3.14)](https://bun.sh/blog/bun-v1.3.14)
 - [Report Issues](https://github.com/shpaw415/frame-master-plugin-image-optimizer/issues)

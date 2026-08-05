@@ -1,21 +1,61 @@
 {
-  "name": "frame-master-plugin-image-optimizer",
-  "version": "0.1.0",
-  "type": "module",
-  "peerDependencies": {
-    "frame-master": "^3.0.2",
-    "typescript": "^5"
-  },
-  "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "dependencies": {
-    "sharp": "^0.34.5"
-  },
-  "exports": {
-    ".": "./index.ts",
-    "./types": "./types.d.ts",
-    "./utils": "./utils.ts"
-  }
+	"name": "frame-master-plugin-image-optimizer",
+	"version": "0.2.0",
+	"description": "Image optimization plugin for Frame-Master — multi-format responsive variants via Bun.Image (no sharp).",
+	"type": "module",
+	"license": "MIT",
+	"author": "shpaw415",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/shpaw415/frame-master-plugin-image-optimizer.git"
+	},
+	"bugs": {
+		"url": "https://github.com/shpaw415/frame-master-plugin-image-optimizer/issues"
+	},
+	"homepage": "https://github.com/shpaw415/frame-master-plugin-image-optimizer#readme",
+	"keywords": [
+		"frame-master",
+		"plugin",
+		"image",
+		"optimizer",
+		"webp",
+		"responsive",
+		"bun"
+	],
+	"files": [
+		"index.ts",
+		"utils.ts",
+		"image-processor.ts",
+		"types.d.ts",
+		"bun-image.d.ts",
+		"README.md",
+		"LICENSE"
+	],
+	"exports": {
+		".": "./index.ts",
+		"./types": "./types.d.ts",
+		"./utils": "./utils.ts"
+	},
+	"scripts": {
+		"test": "bun test",
+		"typecheck": "tsc --noEmit",
+		"format": "biome check --write .",
+		"lint": "biome check ."
+	},
+	"peerDependencies": {
+		"frame-master": "^3.0.2",
+		"typescript": "^5"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.2.0",
+		"@types/bun": "latest",
+		"frame-master": "^3.0.2",
+		"typescript": "^5"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"engines": {
+		"bun": ">=1.3.14"
+	}
 }
