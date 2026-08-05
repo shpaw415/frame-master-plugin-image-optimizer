@@ -8,50 +8,50 @@
 export type ImageFormat = "webp" | "avif" | "jpeg" | "jpg" | "png";
 
 export interface OptimizeOptions {
-  /** Target width in pixels */
-  width?: number;
-  /** Output format */
-  format?: ImageFormat;
-  /** Quality (1-100) */
-  quality?: number;
+	/** Target width in pixels */
+	width?: number;
+	/** Output format */
+	format?: ImageFormat;
+	/** Quality (1-100) */
+	quality?: number;
 }
 
 export interface OnTheFlyOptions extends OptimizeOptions {
-  /** Public path prefix (default: "/optimized") */
-  publicPath?: string;
-  /** Abort signal for cancellation */
-  signal?: AbortSignal;
+	/** Public path prefix (default: "/optimized") */
+	publicPath?: string;
+	/** Abort signal for cancellation */
+	signal?: AbortSignal;
 }
 
 export interface OnTheFlyResult {
-  /** The optimized image as a Blob */
-  blob: Blob;
-  /** Content type of the image */
-  contentType: string;
-  /** Whether the image was optimized on-the-fly or served from cache */
-  optimizedOnTheFly: boolean;
-  /** Object URL for use in img.src (remember to revoke!) */
-  objectUrl: string;
-  /** Revoke the object URL when done */
-  revoke: () => void;
+	/** The optimized image as a Blob */
+	blob: Blob;
+	/** Content type of the image */
+	contentType: string;
+	/** Whether the image was optimized on-the-fly or served from cache */
+	optimizedOnTheFly: boolean;
+	/** Object URL for use in img.src (remember to revoke!) */
+	objectUrl: string;
+	/** Revoke the object URL when done */
+	revoke: () => void;
 }
 
 export interface ImageUrlBuilderConfig {
-  /** Public path prefix (default: "/optimized") */
-  publicPath?: string;
-  /** Default format when not specified */
-  defaultFormat?: ImageFormat;
-  /** Default quality when not specified */
-  defaultQuality?: number;
+	/** Public path prefix (default: "/optimized") */
+	publicPath?: string;
+	/** Default format when not specified */
+	defaultFormat?: ImageFormat;
+	/** Default quality when not specified */
+	defaultQuality?: number;
 }
 
 export interface ResponsiveImageResult {
-  /** Default src URL (largest size) */
-  src: string;
-  /** Srcset string for responsive images */
-  srcset: string;
-  /** Sizes attribute suggestion */
-  sizes: string;
+	/** Default src URL (largest size) */
+	src: string;
+	/** Srcset string for responsive images */
+	srcset: string;
+	/** Sizes attribute suggestion */
+	sizes: string;
 }
 
 // ===== On-The-Fly Optimization API =====
@@ -77,34 +77,34 @@ export interface ResponsiveImageResult {
  * ```
  */
 export async function fetchOptimized(
-  imagePath: string,
-  options: OnTheFlyOptions = {}
+	imagePath: string,
+	options: OnTheFlyOptions = {},
 ): Promise<OnTheFlyResult> {
-  const { publicPath = "/optimized", signal, ...opts } = options;
+	const { publicPath = "/optimized", signal, ...opts } = options;
 
-  const url = buildOptimizeUrl(imagePath, { publicPath, ...opts });
+	const url = buildOptimizeUrl(imagePath, { publicPath, ...opts });
 
-  const response = await fetch(url, { signal });
+	const response = await fetch(url, { signal });
 
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch optimized image: ${response.status} ${response.statusText}`
-    );
-  }
+	if (!response.ok) {
+		throw new Error(
+			`Failed to fetch optimized image: ${response.status} ${response.statusText}`,
+		);
+	}
 
-  const blob = await response.blob();
-  const contentType = response.headers.get("Content-Type") ?? "image/jpeg";
-  const optimizedOnTheFly =
-    response.headers.get("X-Image-Optimized") === "on-the-fly";
-  const objectUrl = URL.createObjectURL(blob);
+	const blob = await response.blob();
+	const contentType = response.headers.get("Content-Type") ?? "image/jpeg";
+	const optimizedOnTheFly =
+		response.headers.get("X-Image-Optimized") === "on-the-fly";
+	const objectUrl = URL.createObjectURL(blob);
 
-  return {
-    blob,
-    contentType,
-    optimizedOnTheFly,
-    objectUrl,
-    revoke: () => URL.revokeObjectURL(objectUrl),
-  };
+	return {
+		blob,
+		contentType,
+		optimizedOnTheFly,
+		objectUrl,
+		revoke: () => URL.revokeObjectURL(objectUrl),
+	};
 }
 
 /**
@@ -117,23 +117,23 @@ export async function fetchOptimized(
  * ```
  */
 export async function fetchOptimizedAsDataUrl(
-  imagePath: string,
-  options: OnTheFlyOptions = {}
+	imagePath: string,
+	options: OnTheFlyOptions = {},
 ): Promise<string> {
-  const result = await fetchOptimized(imagePath, options);
+	const result = await fetchOptimized(imagePath, options);
 
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      result.revoke();
-      resolve(reader.result as string);
-    };
-    reader.onerror = () => {
-      result.revoke();
-      reject(new Error("Failed to convert to data URL"));
-    };
-    reader.readAsDataURL(result.blob);
-  });
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onloadend = () => {
+			result.revoke();
+			resolve(reader.result as string);
+		};
+		reader.onerror = () => {
+			result.revoke();
+			reject(new Error("Failed to convert to data URL"));
+		};
+		reader.readAsDataURL(result.blob);
+	});
 }
 
 /**
@@ -147,11 +147,11 @@ export async function fetchOptimizedAsDataUrl(
  * ```
  */
 export async function preloadOptimized(
-  imagePath: string,
-  options: OnTheFlyOptions = {}
+	imagePath: string,
+	options: OnTheFlyOptions = {},
 ): Promise<void> {
-  const result = await fetchOptimized(imagePath, options);
-  result.revoke(); // Clean up immediately, image is now in browser cache
+	const result = await fetchOptimized(imagePath, options);
+	result.revoke(); // Clean up immediately, image is now in browser cache
 }
 
 /**
@@ -167,25 +167,25 @@ export async function preloadOptimized(
  * ```
  */
 export async function preloadOptimizedBatch(
-  images: Array<{ path: string } & OptimizeOptions>,
-  options: { publicPath?: string; concurrency?: number } = {}
+	images: Array<{ path: string } & OptimizeOptions>,
+	options: { publicPath?: string; concurrency?: number } = {},
 ): Promise<void> {
-  const { publicPath, concurrency = 4 } = options;
+	const { publicPath, concurrency = 4 } = options;
 
-  // Process in batches for controlled concurrency
-  for (let i = 0; i < images.length; i += concurrency) {
-    const batch = images.slice(i, i + concurrency);
-    await Promise.all(
-      batch.map((img) =>
-        preloadOptimized(img.path, {
-          publicPath,
-          width: img.width,
-          format: img.format,
-          quality: img.quality,
-        })
-      )
-    );
-  }
+	// Process in batches for controlled concurrency
+	for (let i = 0; i < images.length; i += concurrency) {
+		const batch = images.slice(i, i + concurrency);
+		await Promise.all(
+			batch.map((img) =>
+				preloadOptimized(img.path, {
+					publicPath,
+					width: img.width,
+					format: img.format,
+					quality: img.quality,
+				}),
+			),
+		);
+	}
 }
 
 /**
@@ -198,20 +198,20 @@ export async function preloadOptimizedBatch(
  * ```
  */
 export function buildOptimizeUrl(
-  imagePath: string,
-  options: OnTheFlyOptions = {}
+	imagePath: string,
+	options: OnTheFlyOptions = {},
 ): string {
-  const { publicPath = "/optimized", width, format, quality } = options;
+	const { publicPath = "/optimized", width, format, quality } = options;
 
-  const params = new URLSearchParams();
-  if (width !== undefined) params.set("w", width.toString());
-  if (format !== undefined) params.set("format", format);
-  if (quality !== undefined) params.set("q", quality.toString());
+	const params = new URLSearchParams();
+	if (width !== undefined) params.set("w", width.toString());
+	if (format !== undefined) params.set("format", format);
+	if (quality !== undefined) params.set("q", quality.toString());
 
-  const basePath = `${publicPath}/${imagePath}`.replace(/\/+/g, "/");
-  const queryString = params.toString();
+	const basePath = `${publicPath}/${imagePath}`.replace(/\/+/g, "/");
+	const queryString = params.toString();
 
-  return queryString ? `${basePath}?${queryString}` : basePath;
+	return queryString ? `${basePath}?${queryString}` : basePath;
 }
 
 /**
@@ -224,10 +224,10 @@ export function buildOptimizeUrl(
  * ```
  */
 export function buildVariantUrl(
-  baseName: string,
-  width: number,
-  format: ImageFormat = "webp",
-  publicPath: string = "/optimized"
+	baseName: string,
+	width: number,
+	format: ImageFormat = "webp",
+	publicPath: string = "/optimized",
 ): string {
-  return `${publicPath}/${baseName}-${width}w.${format}`.replace(/\/+/g, "/");
+	return `${publicPath}/${baseName}-${width}w.${format}`.replace(/\/+/g, "/");
 }
