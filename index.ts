@@ -543,6 +543,7 @@ export default function ImageOptimizerPlugin(
 					);
 					await ensureDir(outputFileDir);
 
+
 					try {
 						await encodeImageToFile(inputPath, outputPath, {
 							width: targetWidth,
@@ -938,7 +939,6 @@ export default function ImageOptimizerPlugin(
 				if (hasManifest) {
 					log(`📦 Loaded cached manifest, checking for changes...`);
 				}
-
 				// Process images (incremental - only changed/new images)
 				await processAllImages(false);
 			},
@@ -947,8 +947,8 @@ export default function ImageOptimizerPlugin(
 		// File watching for dev mode
 		fileSystemWatchDir: config.watch ? [config.input] : [],
 
-		onFileSystemChange: async (eventType, filePath, _absolutePath) => {
-			if (!isImageFile(filePath)) return;
+		onFileSystemChange: async (eventType, filePath, absolutePath) => {
+			if (!isImageFile(filePath) || !absolutePath.startsWith(config.input)) return;
 
 			log(`📁 File ${eventType}: ${filePath}`);
 
