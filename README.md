@@ -48,7 +48,7 @@ export default config;
 
 | Option             | Type                                      | Default              | Description                                                   |
 | ------------------ | ----------------------------------------- | -------------------- | ------------------------------------------------------------- |
-| `input`            | `string`                                  | **required**         | Directory containing source images (relative to project root) |
+| `input`            | `string \| string[]`                      | **required**         | Directory or directories containing source images (relative to project root) |
 | `output`           | `string`                                  | `"static/optimized"` | Output directory for optimized images                         |
 | `publicPath`       | `string`                                  | `"/optimized"`       | Public URL prefix for serving images                          |
 | `formats`          | `("webp" \| "avif" \| "png" \| "jpeg")[]` | `["webp"]`           | Output formats to generate                                    |
@@ -77,6 +77,17 @@ ImageOptimizerPlugin({
   skipExisting: true,
   verbose: false,
   enableImports: true,
+});
+```
+
+### Multiple input directories
+
+`input` can be a string or an array. Imports, watching, and processing apply to every listed root. Output URLs stay relative to the matched root (`hero.jpg` → `/optimized/hero-640w.webp`). If two roots contain the same relative path, the first root wins and a warning is logged.
+
+```typescript
+ImageOptimizerPlugin({
+  input: ["src/images", "assets/photos"],
+  output: "static/optimized",
 });
 ```
 
@@ -506,7 +517,7 @@ Processing is powered by **Bun.Image**. Portable codecs work on every platform; 
 
 ### Lifecycle
 
-1. **Server Start (`main`)** - Processes all images in the input directory
+1. **Server Start (`main`)** - Processes all images in the input directories
 2. **Dev Mode (`dev_main`)** - Enables file watching if configured
 3. **File Change** - Debounced reprocessing of changed files (300ms)
 4. **Build (`beforeBuild`)** - Ensures all images are processed before build
@@ -591,7 +602,7 @@ quality: 70;
 
 ### Images Not Processing
 
-1. Check that the input directory exists
+1. Check that each input directory exists
 2. Verify the files have supported extensions
 3. Enable verbose mode: `verbose: true`
 
@@ -599,7 +610,7 @@ quality: 70;
 
 1. Ensure `enableImports: true` (default)
 2. Add types to `tsconfig.json`
-3. Verify the import path points to the input directory
+3. Verify the import path points to one of the input directories
 
 ### Build Errors
 

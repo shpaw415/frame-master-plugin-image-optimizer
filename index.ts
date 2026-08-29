@@ -11,13 +11,22 @@ import {
 	isUnsupportedImageFormatError,
 	readImageMetadata,
 } from "./image-processor";
+import {
+	isPathInsideDir,
+	matchInputDir,
+	normalizeInputDirs,
+	normalizePosix,
+	recordSource,
+	relativeFromInput,
+	toAbsoluteInputDirs,
+} from "./input-dirs";
 import packageJson from "./package.json";
 
 // ===== Types =====
 
 export interface ImageOptimizerOptions {
-	/** Directory containing source images (relative to project root) */
-	input: string;
+	/** Directory or directories containing source images (relative to project root) */
+	input: string | string[];
 	/** Output directory for optimized images (default: "static/optimized") */
 	output?: string;
 	/** Public URL prefix for images (default: "/optimized") */
@@ -193,16 +202,12 @@ function getOutputFilename(
 // ===== Image Import Plugin Factory =====
 
 function createImageImportPlugin(
-	inputDir: string,
+	inputDirs: string[],
 	publicPath: string,
 	defaultSizes: number[],
 	defaultFormats: string[],
 	manifest: ImageManifest,
 ): Bun.BunPlugin {
-	// Normalize paths
-	const normalizedInputDir = inputDir.replace(/\\/g, "/");
-
-	// Create regex to match image imports from input directory
 	const imageExtensions = Array.from(SUPPORTED_EXTENSIONS)
 		.map((ext) => ext.slice(1))
 		.join("|");
@@ -211,21 +216,14 @@ function createImageImportPlugin(
 	return {
 		name: "image-optimizer-import",
 		setup(build) {
-			// Handle image file imports
 			build.onLoad({ filter: filterRegex }, async (args) => {
 				const filePath = args.path;
-				const normalizedPath = filePath.replace(/\\/g, "/");
-
-				// Check if this image is in our input directory
-				if (!normalizedPath.includes(normalizedInputDir)) {
-					return undefined; // Let other loaders handle it
+				const matchedInput = matchInputDir(filePath, inputDirs);
+				if (!matchedInput) {
+					return undefined;
 				}
 
-				// Get relative path from input directory
-				const inputDirIndex = normalizedPath.indexOf(normalizedInputDir);
-				const relativePath = normalizedPath.slice(
-					inputDirIndex + normalizedInputDir.length + 1,
-				);
+				const relativePath = relativeFromInput(filePath, matchedInput);
 
 				// Check if we have manifest data for this image
 				const manifestEntry = manifest.images[relativePath];
@@ -363,7 +361,7 @@ export default function ImageOptimizerPlugin(
 ): FrameMasterPlugin {
 	// Merge with defaults
 	const config = {
-		input: options.input,
+		input: normalizeInputDirs(options.input),
 		output: options.output ?? "static/optimized",
 		publicPath: options.publicPath ?? "/optimized",
 		formats: options.formats ?? ["webp"],
@@ -383,9 +381,8 @@ export default function ImageOptimizerPlugin(
 		images: {},
 	};
 	let isProcessing = false;
-	const pendingFiles = new Set<string>();
+	const pendingFiles = new Map<string, string>();
 
-	// Logging helpers - only log in build mode or when verbose is enabled
 	const log = (msg: string) => {
 		if (isBuildMode() || config.verbose) {
 			console.log(`${LOG_PREFIX} ${msg}`);
@@ -393,10 +390,14 @@ export default function ImageOptimizerPlugin(
 	};
 	const logVerbose = (msg: string) =>
 		config.verbose && console.log(`${LOG_PREFIX} ${msg}`);
+	const logWarn = (msg: string) => console.warn(`${LOG_PREFIX} ⚠️  ${msg}`);
 	const logError = (msg: string) => console.error(`${LOG_PREFIX} ❌ ${msg}`);
 
-	// Get absolute paths
-	const getInputPath = () => join(process.cwd(), config.input);
+	if (config.input.length === 0) {
+		logError("No input directories configured");
+	}
+
+	const getInputPaths = () => toAbsoluteInputDirs(config.input);
 	const getOutputPath = () => join(process.cwd(), config.output);
 	const getManifestPath = () => join(getOutputPath(), "manifest.json");
 
@@ -426,8 +427,11 @@ export default function ImageOptimizerPlugin(
 	/**
 	 * Check if an image needs reprocessing based on file modification time
 	 */
-	async function needsProcessing(relativePath: string): Promise<boolean> {
-		const inputPath = join(getInputPath(), relativePath);
+	async function needsProcessing(
+		relativePath: string,
+		inputAbs: string,
+	): Promise<boolean> {
+		const inputPath = join(inputAbs, relativePath);
 		const manifestEntry = manifest.images[relativePath];
 
 		// No manifest entry = needs processing
@@ -468,8 +472,11 @@ export default function ImageOptimizerPlugin(
 	/**
 	 * Process a single image file
 	 */
-	async function processImage(relativePath: string): Promise<void> {
-		const inputPath = join(getInputPath(), relativePath);
+	async function processImage(
+		relativePath: string,
+		inputAbs: string,
+	): Promise<void> {
+		const inputPath = join(inputAbs, relativePath);
 		const outputDir = join(
 			getOutputPath(),
 			relativePath.slice(0, relativePath.lastIndexOf("/") + 1),
@@ -542,7 +549,6 @@ export default function ImageOptimizerPlugin(
 						outputPath.lastIndexOf("/"),
 					);
 					await ensureDir(outputFileDir);
-
 
 					try {
 						await encodeImageToFile(inputPath, outputPath, {
@@ -617,53 +623,73 @@ export default function ImageOptimizerPlugin(
 		const startTime = Date.now();
 
 		try {
-			const inputDir = getInputPath();
-
-			// Check if input directory exists
-			if (!(await fileExists(inputDir))) {
-				logError(`Input directory does not exist: ${config.input}`);
+			if (config.input.length === 0) {
 				return;
 			}
 
-			// Get all image files
-			const imageFiles = await getImageFiles(inputDir);
+			const sources: { relativePath: string; inputAbs: string }[] = [];
+			const seen = new Map<string, string>();
+			const inputPaths = getInputPaths();
 
-			if (imageFiles.length === 0) {
-				log(`No images found in ${config.input}`);
+			for (let i = 0; i < inputPaths.length; i++) {
+				const inputAbs = inputPaths[i] ?? "";
+				const relativeDir = config.input[i] ?? inputAbs;
+				if (!inputAbs) continue;
+				if (!(await fileExists(inputAbs))) {
+					logError(`Input directory does not exist: ${relativeDir}`);
+					continue;
+				}
+
+				const imageFiles = await getImageFiles(inputAbs);
+				for (const file of imageFiles) {
+					const relativePath = normalizePosix(file);
+					const result = recordSource(relativePath, inputAbs, seen);
+					if (result === "clash") {
+						const existing = seen.get(relativePath) ?? inputAbs;
+						logWarn(
+							`Duplicate relative path "${relativePath}" in ${inputAbs} skipped (already from ${existing})`,
+						);
+						continue;
+					}
+					if (result === "added") {
+						sources.push({ relativePath, inputAbs });
+					}
+				}
+			}
+
+			if (sources.length === 0) {
+				log(`No images found in ${config.input.join(", ")}`);
 				return;
 			}
 
-			// Ensure output directory exists
 			await ensureDir(getOutputPath());
 
-			// Filter to only images that need processing (unless forceAll)
-			let filesToProcess: string[];
+			let filesToProcess: { relativePath: string; inputAbs: string }[];
 			if (forceAll) {
-				filesToProcess = imageFiles;
-				log(`Force processing ${imageFiles.length} images...`);
+				filesToProcess = sources;
+				log(`Force processing ${sources.length} images...`);
 			} else {
 				filesToProcess = [];
-				for (const file of imageFiles) {
-					if (await needsProcessing(file)) {
-						filesToProcess.push(file);
+				for (const source of sources) {
+					if (await needsProcessing(source.relativePath, source.inputAbs)) {
+						filesToProcess.push(source);
 					}
 				}
 
 				if (filesToProcess.length === 0) {
-					log(`All ${imageFiles.length} images are up to date ✨`);
+					log(`All ${sources.length} images are up to date ✨`);
 					return;
 				}
 
 				log(
-					`Processing ${filesToProcess.length}/${imageFiles.length} images (${
-						imageFiles.length - filesToProcess.length
+					`Processing ${filesToProcess.length}/${sources.length} images (${
+						sources.length - filesToProcess.length
 					} cached)...`,
 				);
 			}
 
-			// Process images that need it
 			for (const file of filesToProcess) {
-				await processImage(file);
+				await processImage(file.relativePath, file.inputAbs);
 			}
 
 			// Write manifest
@@ -688,11 +714,11 @@ export default function ImageOptimizerPlugin(
 	async function processPendingFiles(): Promise<void> {
 		if (pendingFiles.size === 0) return;
 
-		const files = Array.from(pendingFiles);
+		const files = Array.from(pendingFiles.entries());
 		pendingFiles.clear();
 
-		for (const file of files) {
-			await processImage(file);
+		for (const [relativePath, inputAbs] of files) {
+			await processImage(relativePath, inputAbs);
 		}
 
 		// Update manifest
@@ -708,29 +734,36 @@ export default function ImageOptimizerPlugin(
 	/**
 	 * Optimize an image on-the-fly and return the buffer
 	 */
+	async function resolveSourcePath(
+		relativePath: string,
+	): Promise<string | null> {
+		if (relativePath.includes("..") || relativePath.includes("\\")) {
+			logError(`Blocked path traversal attempt: ${relativePath}`);
+			return null;
+		}
+
+		for (const inputAbs of getInputPaths()) {
+			const inputPath = join(inputAbs, relativePath);
+			if (!isPathInsideDir(inputPath, inputAbs)) {
+				logError(`Path escaped input directory: ${relativePath}`);
+				return null;
+			}
+			if (await fileExists(inputPath)) {
+				return inputPath;
+			}
+		}
+
+		return null;
+	}
+
 	async function optimizeOnTheFly(
 		relativePath: string,
 		width: number | undefined,
 		format: string,
 		quality: number,
 	): Promise<{ buffer: Uint8Array; contentType: string } | null> {
-		// Defense-in-depth: validate path doesn't escape input directory
-		if (relativePath.includes("..") || relativePath.includes("\\")) {
-			logError(`Blocked path traversal attempt: ${relativePath}`);
-			return null;
-		}
-
-		const inputPath = join(getInputPath(), relativePath);
-
-		// Verify the resolved path is within input directory
-		const normalizedInputDir = getInputPath();
-		if (!inputPath.startsWith(normalizedInputDir)) {
-			logError(`Path escaped input directory: ${relativePath}`);
-			return null;
-		}
-
-		// Check if source image exists
-		if (!(await fileExists(inputPath))) {
+		const inputPath = await resolveSourcePath(relativePath);
+		if (!inputPath) {
 			return null;
 		}
 
@@ -783,7 +816,7 @@ export default function ImageOptimizerPlugin(
 					const rawPath = pathname.slice(config.publicPath.length + 1);
 
 					// Sanitize path to prevent directory traversal attacks
-					const relativePath = sanitizePath(rawPath, getInputPath());
+					const relativePath = sanitizePath(rawPath, process.cwd());
 					if (!relativePath) {
 						return new Response("Invalid path", { status: 400 });
 					}
@@ -823,7 +856,7 @@ export default function ImageOptimizerPlugin(
 						let originalPath: string | null = null;
 						for (const ext of [".jpg", ".jpeg", ".png", ".webp", ".avif"]) {
 							const testPath = `${basePath}${ext}`;
-							if (await fileExists(join(getInputPath(), testPath))) {
+							if (await resolveSourcePath(testPath)) {
 								originalPath = testPath;
 								break;
 							}
@@ -887,9 +920,8 @@ export default function ImageOptimizerPlugin(
 							});
 						}
 
-						// Fall back to input (original)
-						const inputPath = join(getInputPath(), relativePath);
-						if (await fileExists(inputPath)) {
+						const inputPath = await resolveSourcePath(relativePath);
+						if (inputPath) {
 							const file = Bun.file(inputPath);
 							return new Response(file, {
 								headers: {
@@ -928,7 +960,7 @@ export default function ImageOptimizerPlugin(
 		serverStart: {
 			main: async () => {
 				log(`🖼️  Image Optimizer initialized`);
-				log(`   Input:   ${config.input}`);
+				log(`   Input:   ${config.input.join(", ")}`);
 				log(`   Output:  ${config.output}`);
 				log(`   Formats: ${config.formats.join(", ")}`);
 				log(`   Sizes:   ${config.sizes.join(", ")}w`);
@@ -945,15 +977,20 @@ export default function ImageOptimizerPlugin(
 		},
 
 		// File watching for dev mode
-		fileSystemWatchDir: config.watch ? [config.input] : [],
+		fileSystemWatchDir: config.watch ? [...config.input] : [],
 
 		onFileSystemChange: async (eventType, filePath, absolutePath) => {
-			if (!isImageFile(filePath) || !absolutePath.startsWith(config.input)) return;
+			if (!isImageFile(filePath)) return;
 
-			log(`📁 File ${eventType}: ${filePath}`);
+			const matchedInput = matchInputDir(absolutePath, getInputPaths());
+			if (!matchedInput) return;
 
-			// Add to pending and debounce
-			pendingFiles.add(filePath);
+			const relativePath = relativeFromInput(absolutePath, matchedInput);
+			if (!relativePath) return;
+
+			log(`📁 File ${eventType}: ${relativePath}`);
+
+			pendingFiles.set(relativePath, matchedInput);
 
 			if (debounceTimer) {
 				clearTimeout(debounceTimer);
@@ -969,7 +1006,7 @@ export default function ImageOptimizerPlugin(
 		runtimePlugins: config.enableImports
 			? [
 					createImageImportPlugin(
-						getInputPath(),
+						getInputPaths(),
 						config.publicPath,
 						config.sizes,
 						config.formats,
@@ -985,7 +1022,7 @@ export default function ImageOptimizerPlugin(
 				? {
 						plugins: [
 							createImageImportPlugin(
-								getInputPath(),
+								getInputPaths(),
 								config.publicPath,
 								config.sizes,
 								config.formats,

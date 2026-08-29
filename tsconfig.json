@@ -24,6 +24,7 @@
 		"index.ts",
 		"utils.ts",
 		"image-processor.ts",
+		"input-dirs.ts",
 		"types.d.ts",
 		"bun-image.d.ts",
 		"test/**/*.ts"

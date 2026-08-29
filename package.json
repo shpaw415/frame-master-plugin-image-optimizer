@@ -1,6 +1,6 @@
 {
 	"name": "frame-master-plugin-image-optimizer",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"description": "Image optimization plugin for Frame-Master — multi-format responsive variants via Bun.Image (no sharp).",
 	"type": "module",
 	"license": "MIT",
@@ -26,6 +26,7 @@
 		"index.ts",
 		"utils.ts",
 		"image-processor.ts",
+		"input-dirs.ts",
 		"types.d.ts",
 		"bun-image.d.ts",
 		"README.md",
